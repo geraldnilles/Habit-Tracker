@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HabitPulse - Habit Progress & Trend Tracker</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Font Awesome / Lucide Icons & Chart.js & Confetti -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <!-- Google Fonts (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(51, 65, 85, 0.8);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(71, 85, 105, 1);
+    }
+
+    .glass-panel {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .glass-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased selection:bg-emerald-500 selection:text-slate-950">
+
+  <!-- Top Navigation Bar -->
+  <header class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Logo & Title -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-bold text-xl shadow-lg shadow-emerald-500/20">
+          ⚡
+        </div>
+        <div>
+          <h1 class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+            HabitPulse
+          </h1>
+          <p class="text-xs text-slate-400 hidden sm:block">Track progress & visual trends</p>
+        </div>
+      </div>
+
+      <!-- Quick Actions & Reset -->
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <button id="btn-add-habit" class="flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-3.5 py-2 rounded-xl transition shadow-lg shadow-emerald-500/20 text-sm">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>New Habit</span>
+        </button>
+        
+        <div class="relative inline-block text-left" id="menu-dropdown-container">
+          <button id="btn-more-options" class="p-2 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 transition">
+            <i data-lucide="more-vertical" class="w-5 h-5"></i>
+          </button>
+
+          <!-- Dropdown menu -->
+          <div id="options-menu" class="hidden absolute right-0 mt-2 w-48 rounded-xl bg-slate-900 border border-slate-800 shadow-2xl py-1 z-50">
+            <button id="btn-sample-data" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-800 flex items-center space-x-2">
+              <i data-lucide="sparkles" class="w-4 h-4 text-emerald-400"></i>
+              <span>Load Sample Data</span>
+            </button>
+            <button id="btn-export-data" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-800 flex items-center space-x-2">
+              <i data-lucide="download" class="w-4 h-4 text-blue-400"></i>
+              <span>Export JSON Backup</span>
+            </button>
+            <label class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-800 flex items-center space-x-2 cursor-pointer">
+              <i data-lucide="upload" class="w-4 h-4 text-amber-400"></i>
+              <span>Import JSON Backup</span>
+              <input type="file" id="import-file" class="hidden" accept=".json">
+            </label>
+            <hr class="border-slate-800 my-1">
+            <button id="btn-reset-data" class="w-full text-left px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-950/40 flex items-center space-x-2">
+              <i data-lucide="trash-2" class="w-4 h-4 text-rose-400"></i>
+              <span>Clear All Data</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Week Selector Toolbar -->
+    <section class="glass-panel rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-3 w-full md:w-auto justify-between md:justify-start">
+        <button id="btn-prev-week" class="p-2 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-slate-300 transition">
+          <i data-lucide="chevron-left" class="w-5 h-5"></i>
+        </button>
+        
+        <div class="text-center">
+          <div class="text-base font-bold text-slate-100 flex items-center justify-center space-x-2">
+            <i data-lucide="calendar" class="w-4 h-4 text-emerald-400"></i>
+            <span id="current-week-label">Week 00, 2026</span>
+          </div>
+          <p id="current-week-range" class="text-xs text-slate-400 font-medium mt-0.5">Jan 1 - Jan 7</p>
+        </div>
+
+        <button id="btn-next-week" class="p-2 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-slate-300 transition">
+          <i data-lucide="chevron-right" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <button id="btn-today" class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition flex items-center space-x-1.5">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          <span>Jump to Current Week</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Stat Dashboard Cards -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- Overall Weekly Score Card -->
+      <div class="glass-panel rounded-2xl p-4 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Weekly Score</span>
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <i data-lucide="award" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline space-x-2">
+          <span id="stat-weekly-score" class="text-3xl font-extrabold text-slate-100">0</span>
+          <span class="text-xs font-medium text-slate-400">/ 100 pts</span>
+        </div>
+        <div class="mt-2 w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+          <div id="stat-score-bar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full w-0 transition-all duration-500"></div>
+        </div>
+      </div>
+
+      <!-- Good Habits Completion -->
+      <div class="glass-panel rounded-2xl p-4 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Good Habits Goal</span>
+          <div class="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline space-x-2">
+          <span id="stat-good-progress" class="text-3xl font-extrabold text-teal-400">0/0</span>
+          <span class="text-xs font-medium text-slate-400">completions</span>
+        </div>
+        <p id="stat-good-subtext" class="mt-2 text-xs text-slate-400">0% target hit</p>
+      </div>
+
+      <!-- Bad Habit Slips -->
+      <div class="glass-panel rounded-2xl p-4 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Bad Habit Slips</span>
+          <div class="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline space-x-2">
+          <span id="stat-bad-count" class="text-3xl font-extrabold text-rose-400">0</span>
+          <span class="text-xs font-medium text-slate-400">occurrences</span>
+        </div>
+        <p id="stat-bad-subtext" class="mt-2 text-xs text-rose-400/80">Penalty: -0 pts</p>
+      </div>
+
+      <!-- Consistency Streak -->
+      <div class="glass-panel rounded-2xl p-4 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Consistency Streak</span>
+          <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <i data-lucide="flame" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline space-x-2">
+          <span id="stat-streak" class="text-3xl font-extrabold text-amber-400">0</span>
+          <span class="text-xs font-medium text-slate-400">weeks (≥ 70 pts)</span>
+        </div>
+        <p class="mt-2 text-xs text-slate-400">Keep standard high!</p>
+      </div>
+
+    </section>
+
+    <!-- Habits List Section -->
+    <section class="space-y-4">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-bold text-slate-100 flex items-center space-x-2">
+            <span>Weekly Habits</span>
+            <span id="habit-count-badge" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-semibold border border-slate-700">0</span>
+          </h2>
+          <p class="text-xs text-slate-400">Tap days to mark completions for good habits or record occurrences for bad habits.</p>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="flex items-center bg-slate-900 border border-slate-800 p-1 rounded-xl text-xs font-medium self-stretch sm:self-auto justify-center">
+          <button id="filter-all" class="px-3 py-1.5 rounded-lg bg-slate-800 text-white font-semibold transition">All Habits</button>
+          <button id="filter-good" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition">Good Habits</button>
+          <button id="filter-bad" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition">Bad Habits</button>
+        </div>
+      </div>
+
+      <!-- Container where habits are dynamically rendered -->
+      <div id="habits-container" class="space-y-3">
+        <!-- Dynamic content injected here -->
+      </div>
+
+      <!-- Empty State Container -->
+      <div id="empty-state" class="hidden glass-panel rounded-2xl p-12 text-center flex flex-col items-center justify-center space-y-4">
+        <div class="w-16 h-16 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-3xl">
+          🌱
+        </div>
+        <div class="max-w-md">
+          <h3 class="text-base font-bold text-slate-200">No habits tracked yet</h3>
+          <p class="text-xs text-slate-400 mt-1">Start by adding a good habit to build positive routines or a bad habit to keep negative occurrences under control!</p>
+        </div>
+        <button id="btn-empty-add" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-lg shadow-emerald-500/20">
+          + Create Your First Habit
+        </button>
+      </div>
+    </section>
+
+    <!-- Long-term Progress Chart Section -->
+    <section class="glass-panel rounded-2xl p-5 space-y-4">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+        <div>
+          <h2 class="text-lg font-bold text-slate-100 flex items-center space-x-2">
+            <i data-lucide="trending-up" class="w-5 h-5 text-emerald-400"></i>
+            <span>Long-term Weekly Trend</span>
+          </h2>
+          <p class="text-xs text-slate-400">Weekly single score index tracking your progress over time</p>
+        </div>
+        
+        <div class="flex items-center space-x-2">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            Score = Good Completion % - Bad Occurrences
+          </span>
+        </div>
+      </div>
+
+      <!-- Chart Canvas Wrapper -->
+      <div class="w-full h-64 sm:h-72 relative">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Add/Edit Habit Modal -->
+  <div id="habit-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm hidden p-4">
+    <div class="glass-panel border border-slate-800 w-full max-w-md rounded-2xl p-6 shadow-2xl relative transform transition-all">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <h3 id="modal-title" class="text-lg font-bold text-slate-100">Add New Habit</h3>
+        <button id="btn-close-modal" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="habit-form" class="mt-4 space-y-4">
+        <input type="hidden" id="habit-id" value="">
+
+        <!-- Habit Type Selector -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">Habit Type</label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="cursor-pointer border border-slate-800 rounded-xl p-3 bg-slate-900/60 hover:border-emerald-500/50 flex items-center space-x-3 transition has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-950/20">
+              <input type="radio" name="habit-type" value="good" class="text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-800" checked>
+              <div>
+                <span class="block text-xs font-bold text-emerald-400">Good Habit</span>
+                <span class="block text-[10px] text-slate-400">Target frequency goal</span>
+              </div>
+            </label>
+
+            <label class="cursor-pointer border border-slate-800 rounded-xl p-3 bg-slate-900/60 hover:border-rose-500/50 flex items-center space-x-3 transition has-[:checked]:border-rose-500 has-[:checked]:bg-rose-950/20">
+              <input type="radio" name="habit-type" value="bad" class="text-rose-500 focus:ring-rose-500 bg-slate-950 border-slate-800">
+              <div>
+                <span class="block text-xs font-bold text-rose-400">Bad Habit</span>
+                <span class="block text-[10px] text-slate-400">No goal, penalizes score</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Habit Emoji Selector -->
+        <div>
+          <label for="habit-emoji" class="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">Habit Emoji Icon</label>
+          <div class="flex items-center space-x-3">
+            <input type="text" id="habit-emoji" required maxlength="4" value="🏃" class="w-16 text-center text-3xl bg-slate-900 border border-slate-800 rounded-xl py-2 text-slate-100 focus:outline-none focus:border-emerald-500">
+            <span class="text-xs text-slate-400">Select or enter a single emoji icon to represent this habit.</span>
+          </div>
+        </div>
+
+        <!-- Quick Emoji Preset Selector -->
+        <div>
+          <label class="block text-[11px] font-medium text-slate-400 mb-1.5">Quick Select Emoji:</label>
+          <div class="flex flex-wrap gap-1.5" id="emoji-presets">
+            <!-- Dynamic Emojis injected -->
+          </div>
+        </div>
+
+        <!-- Weekly Goal Selector (Good Habits Only) -->
+        <div id="goal-group" class="space-y-1.5">
+          <div class="flex justify-between items-center">
+            <label for="habit-goal" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">Weekly Occurrence Goal</label>
+            <span id="goal-value-display" class="text-xs font-bold text-emerald-400">4 days / week</span>
+          </div>
+          <input type="range" id="habit-goal" min="1" max="7" value="4" class="w-full accent-emerald-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+          <p class="text-[10px] text-slate-400">How many days per week do you intend to complete this habit?</p>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-800">
+          <button type="button" id="btn-cancel-modal" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 transition">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/20 transition">
+            Save Habit
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY_HABITS = 'habitpulse_habits_v1';
+    const STORAGE_KEY_LOGS = 'habitpulse_logs_v1';
+
+    const EMOJI_PRESETS = ["🏃", "💧", "📚", "🧘", "🥗", "💪", "😴", "🚭", "🍔", "☕", "🎮", "🚴", "🎸", "✍️", "🧪", "📱"];
+    const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    let habits = [];
+    let logs = {}; // Structure: { "2026-W30": { "habit_id": [0,1,0,0,1,0,0] } }
+    let currentWeekKey = "";
+    let activeFilter = "all";
+    let trendChartInstance = null;
+
+    // Helper: Get Week Key (YYYY-Www) and Start/End Dates (Sunday to Saturday)
+    function getISOWeekDetails(dateObj = new Date()) {
+      const sun = new Date(dateObj);
+      const currentDay = sun.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+      sun.setDate(sun.getDate() - currentDay);
+
+      const sat = new Date(sun);
+      sat.setDate(sat.getDate() + 6);
+
+      const year = sun.getFullYear();
+      const jan1 = new Date(year, 0, 1);
+      const daysSinceJan1 = Math.floor((sun - jan1) / 86400000);
+      const weekNo = Math.floor((daysSinceJan1 + jan1.getDay()) / 7) + 1;
+      const padWeek = weekNo < 10 ? '0' + weekNo : weekNo;
+      const weekKey = `${year}-W${padWeek}`;
+
+      return { weekKey, sunday: sun, saturday: sat, year, weekNo };
+    }
+
+    function loadDataFromStorage() {
+      try {
+        const storedHabits = localStorage.getItem(STORAGE_KEY_HABITS);
+        const storedLogs = localStorage.getItem(STORAGE_KEY_LOGS);
+
+        if (storedHabits) habits = JSON.parse(storedHabits);
+        if (storedLogs) logs = JSON.parse(storedLogs);
+
+        // Populate sample data if brand new
+        if (!storedHabits || habits.length === 0) {
+          loadSampleData(false);
+        }
+      } catch (err) {
+        console.error("Failed to parse LocalStorage data", err);
+        habits = [];
+        logs = {};
+      }
+    }
+
+    function saveDataToStorage() {
+      localStorage.setItem(STORAGE_KEY_HABITS, JSON.stringify(habits));
+      localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logs));
+    }
+
+    function loadSampleData(shouldRender = true) {
+      habits = [
+        { id: 'h1', emoji: '🏃', type: 'good', goalPerWeek: 4, createdAt: Date.now() },
+        { id: 'h2', emoji: '💧', type: 'good', goalPerWeek: 6, createdAt: Date.now() },
+        { id: 'h3', emoji: '📚', type: 'good', goalPerWeek: 5, createdAt: Date.now() },
+        { id: 'h4', emoji: '🍔', type: 'bad', goalPerWeek: 0, createdAt: Date.now() },
+        { id: 'h5', emoji: '📱', type: 'bad', goalPerWeek: 0, createdAt: Date.now() }
+      ];
+
+      // Populate realistic past 6 weeks logs
+      logs = {};
+      const today = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const pastDate = new Date(today);
+        pastDate.setDate(pastDate.getDate() - (i * 7));
+        const { weekKey } = getISOWeekDetails(pastDate);
+
+        logs[weekKey] = {
+          'h1': [1, 1, 0, 1, 1, 0, (i === 0 ? 0 : 1)],
+          'h2': [1, 1, 1, 1, 1, 1, 0],
+          'h3': [1, 0, 1, 1, 0, 1, 1],
+          'h4': [0, 1, 0, 0, 2, 0, 0],
+          'h5': [1, 0, 1, 0, 0, 1, 0]
+        };
+      }
+
+      saveDataToStorage();
+      if (shouldRender) renderApp();
+    }
+
+    // Score Formula:
+    // Good habits score = (Sum of completions / Sum of weekly goals) * 100
+    // Bad habits penalty = Total bad habit occurrences * 5 points
+    // Final score = max(0, Good score - Bad penalty)
+    function calculateWeeklyMetrics(weekKey) {
+      const weekLog = logs[weekKey] || {};
+      
+      let totalGoodGoal = 0;
+      let totalGoodCompletions = 0;
+      let totalBadOccurrences = 0;
+
+      habits.forEach(h => {
+        const arr = weekLog[h.id] || [0,0,0,0,0,0,0];
+        const sum = arr.reduce((a, b) => a + b, 0);
+
+        if (h.type === 'good') {
+          totalGoodGoal += h.goalPerWeek;
+          totalGoodCompletions += Math.min(sum, h.goalPerWeek); // cap at target for score math
+        } else {
+          totalBadOccurrences += sum;
+        }
+      });
+
+      const goodRatio = totalGoodGoal > 0 ? (totalGoodCompletions / totalGoodGoal) : 1;
+      const baseGoodScore = Math.round(goodRatio * 100);
+      const badPenalty = totalBadOccurrences * 6; // 6 pts per bad slip
+      const finalScore = Math.max(0, baseGoodScore - badPenalty);
+
+      return {
+        score: finalScore,
+        goodCompletions: totalGoodCompletions,
+        goodGoal: totalGoodGoal,
+        goodPercentage: baseGoodScore,
+        badOccurrences: totalBadOccurrences,
+        badPenalty: badPenalty
+      };
+    }
+
+    function calculateStreak() {
+      // Calculate consecutive weeks with score >= 70 ending at current week
+      let streak = 0;
+      let curr = new Date(currentDatePointer);
+      
+      for (let i = 0; i < 52; i++) {
+        const { weekKey } = getISOWeekDetails(curr);
+        const metrics = calculateWeeklyMetrics(weekKey);
+        if (metrics.score >= 70 && (metrics.goodGoal > 0 || metrics.badOccurrences > 0)) {
+          streak++;
+        } else if (i > 0) {
+          // Break streak if not current week
+          break;
+        }
+        curr.setDate(curr.getDate() - 7);
+      }
+      return streak;
+    }
+
+    let currentDatePointer = new Date();
+
+    function renderWeekHeader() {
+      const { weekKey, sunday, saturday, weekNo } = getISOWeekDetails(currentDatePointer);
+      currentWeekKey = weekKey;
+
+      const formatOpts = { month: 'short', day: 'numeric' };
+      const rangeStr = `${sunday.toLocaleDateString('en-US', formatOpts)} - ${saturday.toLocaleDateString('en-US', formatOpts)}, ${sunday.getFullYear()}`;
+
+      document.getElementById('current-week-label').textContent = `Week ${weekNo}, ${sunday.getFullYear()}`;
+      document.getElementById('current-week-range').textContent = rangeStr;
+    }
+
+    function renderStats() {
+      const m = calculateWeeklyMetrics(currentWeekKey);
+
+      // Score
+      const scoreEl = document.getElementById('stat-weekly-score');
+      scoreEl.textContent = m.score;
+
+      const barEl = document.getElementById('stat-score-bar');
+      barEl.style.width = `${Math.min(100, m.score)}%`;
+
+      // Good
+      document.getElementById('stat-good-progress').textContent = `${m.goodCompletions}/${m.goodGoal}`;
+      document.getElementById('stat-good-subtext').textContent = `${m.goodPercentage}% goal reached`;
+
+      // Bad
+      document.getElementById('stat-bad-count').textContent = m.badOccurrences;
+      document.getElementById('stat-bad-subtext').textContent = `Penalty: -${m.badPenalty} pts`;
+
+      // Streak
+      document.getElementById('stat-streak').textContent = calculateStreak();
+    }
+
+    function renderHabits() {
+      const container = document.getElementById('habits-container');
+      const emptyState = document.getElementById('empty-state');
+      container.innerHTML = '';
+
+      const weekLog = logs[currentWeekKey] || {};
+
+      const filteredHabits = habits.filter(h => {
+        if (activeFilter === 'good') return h.type === 'good';
+        if (activeFilter === 'bad') return h.type === 'bad';
+        return true;
+      });
+
+      document.getElementById('habit-count-badge').textContent = habits.length;
+
+      if (filteredHabits.length === 0) {
+        emptyState.classList.remove('hidden');
+        return;
+      } else {
+        emptyState.classList.add('hidden');
+      }
+
+      filteredHabits.forEach(habit => {
+        const dayArr = weekLog[habit.id] || [0,0,0,0,0,0,0];
+        const totalThisWeek = dayArr.reduce((a, b) => a + b, 0);
+
+        const card = document.createElement('div');
+        card.className = "glass-panel rounded-2xl p-4 transition hover:border-slate-700/80 space-y-3";
+
+        const isGood = habit.type === 'good';
+        const isGoalMet = isGood && totalThisWeek >= habit.goalPerWeek;
+
+        // Card Top Info Header
+        let headerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <span class="text-3xl p-2.5 rounded-2xl bg-slate-900 border border-slate-800 shadow-inner leading-none">${habit.emoji}</span>
+              <div>
+                <div class="flex items-center space-x-2">
+                  ${isGood ? 
+                    `<span class="text-xs font-semibold px-2.5 py-1 rounded-full ${isGoalMet ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-300'}">
+                      ${isGoalMet ? 'Goal Met 🎉' : `${totalThisWeek} / ${habit.goalPerWeek} completed`}
+                     </span>` 
+                    : 
+                    `<span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                      Bad Habit (${totalThisWeek} ${totalThisWeek === 1 ? 'slip' : 'slips'})
+                     </span>`
+                  }
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">
+                  ${isGood ? `Weekly Target: ${habit.goalPerWeek} days` : `Negative score impact: -${totalThisWeek * 6} pts`}
+                </p>
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-1">
+              <button onclick="editHabit('${habit.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition" title="Edit Habit">
+                <i data-lucide="edit-3" class="w-4 h-4"></i>
+              </button>
+              <button onclick="deleteHabit('${habit.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 transition" title="Delete Habit">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        `;
+
+        // 7-Day Interactive Grid Row
+        let daysHTML = `<div class="grid grid-cols-7 gap-1.5 sm:gap-2 pt-1">`;
+        
+        DAY_NAMES.forEach((dayName, idx) => {
+          const count = dayArr[idx] || 0;
+          const isDone = count > 0;
+
+          if (isGood) {
+            // Good Habit: Toggle checkmark button
+            daysHTML += `
+              <button onclick="toggleHabitDay('${habit.id}', ${idx})" 
+                class="flex flex-col items-center justify-center p-2 rounded-xl border transition-all duration-200 ${
+                  isDone 
+                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-md shadow-emerald-950' 
+                  : 'bg-slate-900/60 border-slate-800/80 text-slate-400 hover:bg-slate-800/80'
+                }">
+                <span class="text-[10px] font-semibold text-slate-400 mb-1">${dayName}</span>
+                <i data-lucide="${isDone ? 'check' : 'minus'}" class="w-4 h-4 ${isDone ? 'text-emerald-400 stroke-[3]' : 'text-slate-600'}"></i>
+              </button>
+            `;
+          } else {
+            // Bad Habit: Multi-increment / decrement slip button
+            daysHTML += `
+              <div class="flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-xl border ${
+                count > 0 ? 'bg-rose-950/30 border-rose-500/40 text-rose-300' : 'bg-slate-900/60 border-slate-800/80 text-slate-400'
+              }">
+                <span class="text-[10px] font-semibold text-slate-400 mb-0.5">${dayName}</span>
+                <div class="flex items-center space-x-1">
+                  <button onclick="adjustBadHabitDay('${habit.id}', ${idx}, 1)" class="w-5 h-5 rounded bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-slate-950 font-bold text-xs flex items-center justify-center transition">
+                    +
+                  </button>
+                  <span class="text-xs font-extrabold ${count > 0 ? 'text-rose-400' : 'text-slate-500'}">${count}</span>
+                  ${count > 0 ? `
+                    <button onclick="adjustBadHabitDay('${habit.id}', ${idx}, -1)" class="w-4 h-4 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] flex items-center justify-center transition">
+                      -
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+            `;
+          }
+        });
+
+        daysHTML += `</div>`;
+
+        card.innerHTML = headerHTML + daysHTML;
+        container.appendChild(card);
+      });
+
+      // Re-initialize Lucide Icons in injected DOM
+      lucide.createIcons();
+    }
+
+    function toggleHabitDay(habitId, dayIndex) {
+      if (!logs[currentWeekKey]) logs[currentWeekKey] = {};
+      if (!logs[currentWeekKey][habitId]) logs[currentWeekKey][habitId] = [0,0,0,0,0,0,0];
+
+      const currentVal = logs[currentWeekKey][habitId][dayIndex];
+      logs[currentWeekKey][habitId][dayIndex] = currentVal > 0 ? 0 : 1;
+
+      // Confetti effect if good goal was just reached!
+      const habit = habits.find(h => h.id === habitId);
+      if (habit && habit.type === 'good') {
+        const newTotal = logs[currentWeekKey][habitId].reduce((a, b) => a + b, 0);
+        if (newTotal === habit.goalPerWeek && currentVal === 0) {
+          confetti({
+            particleCount: 50,
+            spread: 60,
+            origin: { y: 0.7 }
+          });
+        }
+      }
+
+      saveDataToStorage();
+      renderApp();
+    }
+
+    function adjustBadHabitDay(habitId, dayIndex, delta) {
+      if (!logs[currentWeekKey]) logs[currentWeekKey] = {};
+      if (!logs[currentWeekKey][habitId]) logs[currentWeekKey][habitId] = [0,0,0,0,0,0,0];
+
+      const currentVal = logs[currentWeekKey][habitId][dayIndex];
+      logs[currentWeekKey][habitId][dayIndex] = Math.max(0, currentVal + delta);
+
+      saveDataToStorage();
+      renderApp();
+    }
+
+    function renderTrendChart() {
+      const ctx = document.getElementById('trendChart').getContext('2d');
+      
+      // Collect last 8 weeks keys
+      const weekKeys = [];
+      const labels = [];
+      const scores = [];
+
+      let curr = new Date(currentDatePointer);
+      for (let i = 7; i >= 0; i--) {
+        const temp = new Date(curr);
+        temp.setDate(temp.getDate() - (i * 7));
+        const { weekKey, weekNo } = getISOWeekDetails(temp);
+        weekKeys.push(weekKey);
+        labels.push(`W${weekNo}`);
+
+        const m = calculateWeeklyMetrics(weekKey);
+        scores.push(m.score);
+      }
+
+      if (trendChartInstance) {
+        trendChartInstance.destroy();
+      }
+
+      trendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Overall Score Index',
+              data: scores,
+              borderColor: '#22c55e',
+              backgroundColor: 'rgba(34, 197, 94, 0.15)',
+              borderWidth: 3,
+              fill: true,
+              tension: 0.3,
+              pointBackgroundColor: '#22c55e',
+              pointRadius: 5,
+              pointHoverRadius: 7
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: {
+                color: '#94a3b8',
+                font: { family: 'Inter', size: 11 }
+              }
+            },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              titleColor: '#f8fafc',
+              bodyColor: '#cbd5e1',
+              borderColor: '#334155',
+              borderWidth: 1,
+              padding: 10,
+              displayColors: true
+            }
+          },
+          scales: {
+            y: {
+              min: 0,
+              max: 100,
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#64748b', font: { family: 'Inter', size: 11 } }
+            },
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#64748b', font: { family: 'Inter', size: 11 } }
+            }
+          }
+        }
+      });
+    }
+
+    const modal = document.getElementById('habit-modal');
+    const form = document.getElementById('habit-form');
+
+    function openModal(habitToEdit = null) {
+      form.reset();
+      
+      // Populate Emoji Preset Bar
+      const presetContainer = document.getElementById('emoji-presets');
+      presetContainer.innerHTML = '';
+      EMOJI_PRESETS.forEach(emoji => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = "w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 hover:border-emerald-500 text-base flex items-center justify-center transition";
+        btn.textContent = emoji;
+        btn.onclick = () => { document.getElementById('habit-emoji').value = emoji; };
+        presetContainer.appendChild(btn);
+      });
+
+      if (habitToEdit) {
+        document.getElementById('modal-title').textContent = "Edit Habit";
+        document.getElementById('habit-id').value = habitToEdit.id;
+        document.getElementById('habit-emoji').value = habitToEdit.emoji;
+        document.querySelector(`input[name="habit-type"][value="${habitToEdit.type}"]`).checked = true;
+        document.getElementById('habit-goal').value = habitToEdit.goalPerWeek || 4;
+      } else {
+        document.getElementById('modal-title').textContent = "Add New Habit";
+        document.getElementById('habit-id').value = "";
+        document.getElementById('habit-goal').value = 4;
+      }
+
+      updateGoalVisibility();
+      modal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+      modal.classList.add('hidden');
+    }
+
+    function updateGoalVisibility() {
+      const isGood = document.querySelector('input[name="habit-type"]:checked').value === 'good';
+      const goalGroup = document.getElementById('goal-group');
+      if (isGood) {
+        goalGroup.classList.remove('hidden');
+      } else {
+        goalGroup.classList.add('hidden');
+      }
+    }
+
+    function editHabit(id) {
+      const habit = habits.find(h => h.id === id);
+      if (habit) openModal(habit);
+    }
+
+    function deleteHabit(id) {
+      if (confirm("Are you sure you want to delete this habit? Historical logs will be removed.")) {
+        habits = habits.filter(h => h.id !== id);
+        // Clean logs
+        Object.keys(logs).forEach(w => {
+          if (logs[w][id]) delete logs[w][id];
+        });
+        saveDataToStorage();
+        renderApp();
+      }
+    }
+
+    function setupEventListeners() {
+      // Week Navigation
+      document.getElementById('btn-prev-week').onclick = () => {
+        currentDatePointer.setDate(currentDatePointer.getDate() - 7);
+        renderApp();
+      };
+
+      document.getElementById('btn-next-week').onclick = () => {
+        currentDatePointer.setDate(currentDatePointer.getDate() + 7);
+        renderApp();
+      };
+
+      document.getElementById('btn-today').onclick = () => {
+        currentDatePointer = new Date();
+        renderApp();
+      };
+
+      // Filters
+      const btnAll = document.getElementById('filter-all');
+      const btnGood = document.getElementById('filter-good');
+      const btnBad = document.getElementById('filter-bad');
+
+      const setFilterUI = (activeBtn) => {
+        [btnAll, btnGood, btnBad].forEach(b => {
+          b.className = "px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition";
+        });
+        activeBtn.className = "px-3 py-1.5 rounded-lg bg-slate-800 text-white font-semibold transition";
+      };
+
+      btnAll.onclick = () => { activeFilter = 'all'; setFilterUI(btnAll); renderHabits(); };
+      btnGood.onclick = () => { activeFilter = 'good'; setFilterUI(btnGood); renderHabits(); };
+      btnBad.onclick = () => { activeFilter = 'bad'; setFilterUI(btnBad); renderHabits(); };
+
+      // Modal Controls
+      document.getElementById('btn-add-habit').onclick = () => openModal();
+      document.getElementById('btn-empty-add').onclick = () => openModal();
+      document.getElementById('btn-close-modal').onclick = closeModal;
+      document.getElementById('btn-cancel-modal').onclick = closeModal;
+
+      document.querySelectorAll('input[name="habit-type"]').forEach(radio => {
+        radio.addEventListener('change', updateGoalVisibility);
+      });
+
+      const goalRange = document.getElementById('habit-goal');
+      const goalDisplay = document.getElementById('goal-value-display');
+      goalRange.oninput = () => {
+        goalDisplay.textContent = `${goalRange.value} days / week`;
+      };
+
+      // Form Submit
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        const id = document.getElementById('habit-id').value;
+        const emoji = document.getElementById('habit-emoji').value.trim() || '⭐';
+        const type = document.querySelector('input[name="habit-type"]:checked').value;
+        const goalPerWeek = type === 'good' ? parseInt(goalRange.value) : 0;
+
+        if (id) {
+          // Update existing
+          const habit = habits.find(h => h.id === id);
+          if (habit) {
+            habit.emoji = emoji;
+            habit.type = type;
+            habit.goalPerWeek = goalPerWeek;
+          }
+        } else {
+          // Create new
+          const newHabit = {
+            id: 'h_' + Date.now(),
+            emoji,
+            type,
+            goalPerWeek,
+            createdAt: Date.now()
+          };
+          habits.push(newHabit);
+        }
+
+        saveDataToStorage();
+        closeModal();
+        renderApp();
+      };
+
+      // Header Menu Dropdown & Actions
+      const btnMore = document.getElementById('btn-more-options');
+      const menu = document.getElementById('options-menu');
+
+      btnMore.onclick = (e) => {
+        e.stopPropagation();
+        menu.classList.toggle('hidden');
+      };
+
+      document.addEventListener('click', () => {
+        menu.classList.add('hidden');
+      });
+
+      document.getElementById('btn-sample-data').onclick = () => loadSampleData(true);
+
+      document.getElementById('btn-reset-data').onclick = () => {
+        if (confirm("Reset and clear all custom habit data?")) {
+          habits = [];
+          logs = {};
+          saveDataToStorage();
+          renderApp();
+        }
+      };
+
+      // Backup Export / Import
+      document.getElementById('btn-export-data').onclick = () => {
+        const exportObj = { habits, logs };
+        const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `HabitPulse_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      document.getElementById('import-file').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+            if (data.habits && data.logs) {
+              habits = data.habits;
+              logs = data.logs;
+              saveDataToStorage();
+              renderApp();
+              alert('Habit data imported successfully!');
+            } else {
+              alert('Invalid backup file format.');
+            }
+          } catch (err) {
+            alert('Error parsing JSON backup file.');
+          }
+        };
+        reader.readAsText(file);
+      };
+    }
+
+    function renderApp() {
+      renderWeekHeader();
+      renderStats();
+      renderHabits();
+      renderTrendChart();
+    }
+
+    window.onload = () => {
+      loadDataFromStorage();
+      setupEventListeners();
+      renderApp();
+    };
+  </script>
+
+</body>
+</html>
