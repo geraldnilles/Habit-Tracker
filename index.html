@@ -342,7 +342,7 @@
             <span id="goal-value-display" class="text-xs font-bold text-emerald-400">4 days / week</span>
           </div>
           <input type="range" id="habit-goal" min="0" max="7" value="4" class="w-full accent-emerald-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
-          <p id="goal-hint" class="text-[10px] text-slate-400">Days per week you intend to complete this habit. Reaching the goal turns the habit card gold.</p>
+          <p id="goal-hint" class="text-[10px] text-slate-400">Days per week you intend to complete this habit. Reaching the goal turns the habit card green.</p>
         </div>
 
         <!-- Form Actions -->
@@ -618,31 +618,14 @@
       document.getElementById('stat-streak').textContent = calculateStreak();
     }
 
-    // Visual theme for a habit based on weight sign and goal completion
+    // Visual theme for a habit based on weight sign and goal completion.
+    //   Good habits (pol > 0): grayish while the weekly goal is unmet, green once met.
+    //   Bad habits (pol < 0): always the rose/danger theme (never turns gold).
+    //   Weightless (pol == 0): neutral slate.
     function habitTheme(habit, occurrences) {
       const pol = habitPolarity(habit.weight);
       const goalMet = isHabitGoalMet(habit, occurrences);
 
-      if (goalMet) {
-        return {
-          goalMet,
-          card: 'glass-panel rounded-2xl p-4 transition space-y-3 border border-amber-500/50 bg-amber-500/5',
-          badge: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
-          icon: 'text-amber-300',
-          activeDay: 'bg-amber-500/20 border-amber-500/50 text-amber-200 shadow-md shadow-amber-950/40',
-          accent: 'text-amber-300'
-        };
-      }
-      if (pol > 0) {
-        return {
-          goalMet,
-          card: 'glass-panel rounded-2xl p-4 transition space-y-3 border border-emerald-500/30',
-          badge: 'bg-slate-800 text-slate-300 border border-slate-700',
-          icon: 'text-emerald-400',
-          activeDay: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-md shadow-emerald-950',
-          accent: 'text-emerald-400'
-        };
-      }
       if (pol < 0) {
         return {
           goalMet,
@@ -651,6 +634,28 @@
           icon: 'text-rose-400',
           activeDay: 'bg-rose-950/40 border-rose-500/40 text-rose-300',
           accent: 'text-rose-400'
+        };
+      }
+      if (pol > 0) {
+        if (goalMet) {
+          // Weekly goal complete -> green theme
+          return {
+            goalMet,
+            card: 'glass-panel rounded-2xl p-4 transition space-y-3 border border-emerald-500/50 bg-emerald-500/5',
+            badge: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/40',
+            icon: 'text-emerald-400',
+            activeDay: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-md shadow-emerald-950',
+            accent: 'text-emerald-400'
+          };
+        }
+        // Weekly goal not yet met -> grayish theme
+        return {
+          goalMet,
+          card: 'glass-panel rounded-2xl p-4 transition space-y-3 border border-slate-600/60 bg-slate-500/5',
+          badge: 'bg-slate-800 text-slate-400 border border-slate-700',
+          icon: 'text-slate-500',
+          activeDay: 'bg-slate-600/30 border-slate-500/60 text-slate-300',
+          accent: 'text-slate-400'
         };
       }
       return {
@@ -675,7 +680,7 @@
         if (activeFilter === 'positive') return pol > 0;
         if (activeFilter === 'negative') return pol < 0;
         return true;
-      }).sort((a, b) => habitPolarity(b.weight) - habitPolarity(a.weight));
+      }).sort((a, b) => (b.weight - a.weight) || ((a.createdAt || 0) - (b.createdAt || 0)));
 
       document.getElementById('habit-count-badge').textContent = habits.length;
 
