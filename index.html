@@ -225,6 +225,30 @@
 
     </section>
 
+    <!-- Long-term Progress Chart Section -->
+    <section class="glass-panel rounded-2xl p-5 space-y-4">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+        <div>
+          <h2 class="text-lg font-bold text-slate-100 flex items-center space-x-2">
+            <i data-lucide="trending-up" class="w-5 h-5 text-emerald-400"></i>
+            <span>Long-term Weekly Trend</span>
+          </h2>
+          <p class="text-xs text-slate-400">Weekly point totals tracking your progress over time</p>
+        </div>
+        
+        <div class="flex items-center space-x-2">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            Score = Σ Occurrences × Weight
+          </span>
+        </div>
+      </div>
+
+      <!-- Chart Canvas Wrapper -->
+      <div class="w-full h-64 sm:h-72 relative">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </section>
+
     <!-- Habits List Section -->
     <section class="space-y-4">
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -261,30 +285,6 @@
         <button id="btn-empty-add" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-lg shadow-emerald-500/20">
           + Create Your First Habit
         </button>
-      </div>
-    </section>
-
-    <!-- Long-term Progress Chart Section -->
-    <section class="glass-panel rounded-2xl p-5 space-y-4">
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
-        <div>
-          <h2 class="text-lg font-bold text-slate-100 flex items-center space-x-2">
-            <i data-lucide="trending-up" class="w-5 h-5 text-emerald-400"></i>
-            <span>Long-term Weekly Trend</span>
-          </h2>
-          <p class="text-xs text-slate-400">Weekly point totals tracking your progress over time</p>
-        </div>
-        
-        <div class="flex items-center space-x-2">
-          <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            Score = Σ Occurrences × Weight
-          </span>
-        </div>
-      </div>
-
-      <!-- Chart Canvas Wrapper -->
-      <div class="w-full h-64 sm:h-72 relative">
-        <canvas id="trendChart"></canvas>
       </div>
     </section>
 
@@ -675,7 +675,7 @@
         if (activeFilter === 'positive') return pol > 0;
         if (activeFilter === 'negative') return pol < 0;
         return true;
-      });
+      }).sort((a, b) => habitPolarity(b.weight) - habitPolarity(a.weight));
 
       document.getElementById('habit-count-badge').textContent = habits.length;
 
