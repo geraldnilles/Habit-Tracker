@@ -171,7 +171,7 @@
         </div>
         <div class="mt-3 flex items-baseline space-x-2">
           <span id="stat-weekly-score" class="text-3xl font-extrabold text-slate-100">0</span>
-          <span class="text-xs font-medium text-slate-400">/ 100 pts</span>
+          <span class="text-xs font-medium text-slate-400">/ <span id="stat-score-max">0</span> pts</span>
         </div>
         <div class="mt-2 w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
           <div id="stat-score-bar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full w-0 transition-all duration-500"></div>
@@ -218,7 +218,7 @@
         </div>
         <div class="mt-3 flex items-baseline space-x-2">
           <span id="stat-streak" class="text-3xl font-extrabold text-amber-400">0</span>
-          <span class="text-xs font-medium text-slate-400">weeks (≥ 70 pts)</span>
+          <span class="text-xs font-medium text-slate-400">weeks (≥ 70% of max)</span>
         </div>
         <p class="mt-2 text-xs text-slate-400">Keep standard high!</p>
       </div>
@@ -272,12 +272,12 @@
             <i data-lucide="trending-up" class="w-5 h-5 text-emerald-400"></i>
             <span>Long-term Weekly Trend</span>
           </h2>
-          <p class="text-xs text-slate-400">Weekly single score index tracking your progress over time</p>
+          <p class="text-xs text-slate-400">Weekly point totals tracking your progress over time</p>
         </div>
         
         <div class="flex items-center space-x-2">
           <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            Score = Weighted Goal Progress
+            Score = Σ Occurrences × Weight
           </span>
         </div>
       </div>
@@ -473,21 +473,36 @@
       if (shouldRender) renderApp();
     }
 
-    // Score Formula (weighted, normalized to 0-100):
-    //   For every habit we compute a "performance" ratio in [0,1]:
-    //     positive weight -> min(occurrences, goal) / goal  (goal 0 => 1 if any occurrence)
-    //     negative weight -> 1 - min(occurrences, goal) / goal (goal 0 => 0 if any occurrence)
-    //   score = 100 * SUM(perf * |weight|) / SUM(|weight|)
-    // Negative-weight habits therefore erode the score when they slip, and the
-    // magnitude of every weight scales how much that habit matters.
-    function habitPerformance(habit, occurrences) {
-      const goal = habit.goalPerWeek || 0;
+    // Score Formula (simple signed sum):
+    //   score = SUM(occurrences * weight) across every habit.
+    //   Each logged occurrence adds its habit's weight: a +3 habit contributes
+    //   +3 points per completion, a -3 habit subtracts 3 points per slip.
+    //   The weekly maximum is what you'd score by hitting every positive goal:
+    //     maxScore = SUM(weight * goal) over positive-weight habits
+    //   so it grows with both the number of habits and their weights. The score
+    //   is no longer capped to 0-100 and can go negative if negative-weight
+    //   habits outweigh the positive ones.
+    function habitScore(habit, occurrences) {
+      return occurrences * habit.weight;
+    }
+
+    // Weekly maximum: positive habits contribute goal * weight. A positive
+    // habit with no goal has no fixed target, so it adds a single occurrence's
+    // worth of points to the maximum.
+    function habitMaxScore(habit) {
       const pol = habitPolarity(habit.weight);
-      if (pol === 0) return 0; // weightless habits do not affect the score
-      if (pol > 0) {
-        return goal > 0 ? Math.min(occurrences, goal) / goal : (occurrences > 0 ? 1 : 0);
-      }
-      return goal > 0 ? Math.max(0, 1 - Math.min(occurrences, goal) / goal) : (occurrences > 0 ? 0 : 1);
+      if (pol <= 0) return 0; // weightless/negative habits cannot earn points
+      const goal = habit.goalPerWeek || 0;
+      return Math.abs(habit.weight) * (goal > 0 ? goal : 1);
+    }
+
+    // Progress toward the weekly maximum as a ratio in [0,1] (used by the
+    // progress bar and the streak calculation). Exceeding the max clamps to 1.
+    // With no positive habits there is nothing to earn, so a non-negative score
+    // counts as perfect.
+    function scoreRatio(metrics) {
+      if (metrics.maxScore <= 0) return metrics.score >= 0 ? 1 : 0;
+      return Math.max(0, Math.min(1, metrics.score / metrics.maxScore));
     }
 
     // A goal is "complete" for the week when the good direction has been reached.
@@ -500,25 +515,25 @@
     function calculateWeeklyMetrics(weekKey) {
       const weekLog = logs[weekKey] || {};
 
-      let earned = 0;        // weighted performance credit
-      let possible = 0;      // total |weight|
+      let score = 0;         // signed sum of occurrences * weight
+      let maxScore = 0;      // points available by hitting every positive goal
       let goalsMet = 0;
       let goalsTotal = 0;
-      let negativePoints = 0; // weighted badness of negative habits
+      let negativePoints = 0; // points lost to negative-weight habits
       let slips = 0;
 
       habits.forEach(h => {
         const arr = weekLog[h.id] || [0,0,0,0,0,0,0];
         const sum = arr.reduce((a, b) => a + b, 0);
         const pol = habitPolarity(h.weight);
-        const perf = habitPerformance(h, sum);
 
-        if (pol !== 0) {
-          earned += perf * Math.abs(h.weight);
-          possible += Math.abs(h.weight);
-        }
+        if (pol === 0) return; // weightless habits never move the score
+
+        score += habitScore(h, sum);
+        maxScore += habitMaxScore(h);
+
         if (pol < 0) {
-          negativePoints += (1 - perf) * Math.abs(h.weight);
+          negativePoints += Math.abs(habitScore(h, sum));
           slips += sum;
         }
         if ((h.goalPerWeek || 0) > 0) {
@@ -527,26 +542,26 @@
         }
       });
 
-      const score = possible > 0 ? Math.round(100 * earned / possible) : 100;
-
       return {
-        score: Math.max(0, Math.min(100, score)),
+        score,
+        maxScore,
         goalsMet,
         goalsTotal,
-        negativePoints: Math.round(negativePoints),
+        negativePoints,
         slips
       };
     }
 
     function calculateStreak() {
-      // Calculate consecutive weeks with score >= 70 ending at current week
+      // Calculate consecutive weeks at >= 70% of the weekly maximum, ending at
+      // the current week
       let streak = 0;
       let curr = new Date(currentDatePointer);
       
       for (let i = 0; i < 52; i++) {
         const { weekKey } = getISOWeekDetails(curr);
         const metrics = calculateWeeklyMetrics(weekKey);
-        if (metrics.score >= 70) {
+        if (scoreRatio(metrics) >= 0.7) {
           streak++;
         } else if (i > 0) {
           // Break streak if not current week
@@ -572,12 +587,22 @@
 
     function renderStats() {
       const m = calculateWeeklyMetrics(currentWeekKey);
+      const ratio = scoreRatio(m);
 
       const scoreEl = document.getElementById('stat-weekly-score');
       scoreEl.textContent = m.score;
+      // A negative total means negative-weight habits outweighed the good ones.
+      scoreEl.className = m.score < 0
+        ? 'text-3xl font-extrabold text-rose-400'
+        : 'text-3xl font-extrabold text-slate-100';
+
+      document.getElementById('stat-score-max').textContent = m.maxScore;
 
       const barEl = document.getElementById('stat-score-bar');
-      barEl.style.width = `${m.score}%`;
+      barEl.style.width = `${Math.round(ratio * 100)}%`;
+      barEl.className = m.score < 0
+        ? 'bg-gradient-to-r from-rose-500 to-rose-400 h-full transition-all duration-500'
+        : 'bg-gradient-to-r from-emerald-500 to-teal-400 h-full transition-all duration-500';
 
       // Goals
       document.getElementById('stat-goal-progress').textContent = `${m.goalsMet}/${m.goalsTotal}`;
@@ -799,6 +824,8 @@
       const weekKeys = [];
       const labels = [];
       const scores = [];
+      let scaleMax = 0; // highest points seen (score or weekly max)
+      let scaleMin = 0; // lowest (may be negative)
 
       let curr = new Date(currentDatePointer);
       for (let i = 7; i >= 0; i--) {
@@ -810,6 +837,8 @@
 
         const m = calculateWeeklyMetrics(weekKey);
         scores.push(m.score);
+        scaleMax = Math.max(scaleMax, m.score, m.maxScore);
+        scaleMin = Math.min(scaleMin, m.score);
       }
 
       if (trendChartInstance) {
@@ -822,7 +851,7 @@
           labels: labels,
           datasets: [
             {
-              label: 'Overall Score Index',
+              label: 'Weekly Points',
               data: scores,
               borderColor: '#22c55e',
               backgroundColor: 'rgba(34, 197, 94, 0.15)',
@@ -857,8 +886,8 @@
           },
           scales: {
             y: {
-              min: 0,
-              max: 100,
+              min: scaleMin,
+              max: Math.max(1, scaleMax),
               grid: { color: 'rgba(255, 255, 255, 0.05)' },
               ticks: { color: '#64748b', font: { family: 'Inter', size: 11 } }
             },
